@@ -1,0 +1,52 @@
+# pyproject.toml (continuação)
+
+[tool.flake8]
+# Comprimento máximo da linha: deve ser compatível com Black (88 é o padrão do Black)
+max-line-length = 88
+
+# Ignora erros comuns que conflitam com Black
+# E203: whitespace before ':' (Black usa espaços em slices, isso é false positive)
+# W503: line break before binary operator (Black quebra antes do operador, PEP8 moderno permite)
+# E501: line too long (já controlado por max-line-length + Black)
+ignore = [
+    "E203",   # whitespace before ':'
+    "W503",   # line break before binary operator
+    "E501",   # line too long (deixe Black cuidar)
+]
+
+# Exclui pastas/arquivos que não precisam ser lintados
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    .pytest_cache,
+    .ruff_cache,
+    .mypy_cache,
+    build,
+    dist,
+    *.egg-info,
+    chroma,           # se você usa vector stores
+    vectorstore
+
+# Mostra o código fonte do erro
+show-source = true
+
+# Quantidade máxima de erros antes de parar (útil em CI)
+max-complexity = 10          # mccabe complexity (opcional)
+
+# Outros plugins comuns (instale se quiser: flake8-bugbear, flake8-docstrings, etc.)
+# Exemplo: enable bugbear B9xx (recomendado)
+# select = E,F,W,C90,B,ANN
+
+# Per-file ignores (exemplo: ignore imports não usados em __init__.py)
+per-file-ignores =
+    __init__.py:F401,   # imported but unused
+    tests/*:S101        # use of assert (se usar pytest)
+
+# Formato de saída (colored é bonito no terminal)
+format = "default"           # ou "pylint" / "colored" se preferir
+
+# Se quiser mais rigor (opcional)
+extend-select = ["B950"]     # Bugbear: line too long com 10% rule do Black

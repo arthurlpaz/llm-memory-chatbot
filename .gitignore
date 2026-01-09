@@ -1,0 +1,111 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.env/
+env/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Streamlit
+.streamlit/
+**/.streamlit/secrets.toml
+
+# Environment variables / secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env.*
+
+# LangChain / LLM related
+*.pkl
+*.pickle
+chroma/
+vectorstore/
+faiss_index/
+*.faiss
+*.index
+cache/
+.rag_cache/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*~
+.DS_Store
+Thumbs.db
+
+# Testing and coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+*.pytest_cache/
+tox/
+nox/
+.hypothesis/
+.pytest_cache/
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.sqlite3
+
+# Dependency management
+Pipfile.lock
+poetry.lock
+requirements.txt.lock
+
+# Temporary files
+*.bak
+*.tmp
+*.temp
+*.swp
+
+# macOS specific
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+__MACOSX/
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Optional: keep your API keys safe!
+# (don't commit them!)
+huggingface_token.txt
+openai_api_key.txt
