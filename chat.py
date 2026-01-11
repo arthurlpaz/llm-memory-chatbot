@@ -62,11 +62,12 @@ def model_response(user_query, chat_history, model_class):
     elif model_class == "ollama":
         llm = model_ollama()
     else:
-        raise ValueError("Modelo inválido")
+        raise ValueError("Invalid model_class")
 
     system_prompt = (
         "Você é um assistente prestativo e responde perguntas gerais. "
-        "Responda sempre em {language}."
+        "You're a helpful assistant and answers general questions."
+        "Always answer in {language}."
     )
 
     prompt = ChatPromptTemplate.from_messages(
@@ -80,14 +81,14 @@ def model_response(user_query, chat_history, model_class):
     chain = prompt | llm | StrOutputParser()
 
     return chain.stream(
-        {"chat_history": chat_history, "input": user_query, "language": "português"}
+        {"chat_history": chat_history, "input": user_query, "language": "english"}
     )
 
 
 # SESSION STATE
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
-        AIMessage(content="Olá! Sou seu assistente virtual 🤖. Como posso ajudar?")
+        AIMessage(content="Hello! I'm your virtual assistant 🤖. How can I help you?")
     ]
 
 # CHAT HISTORY RENDER
@@ -97,7 +98,7 @@ for message in st.session_state.chat_history:
         st.markdown(message.content)
 
 # USER INPUT
-user_query = st.chat_input("Digite sua mensagem aqui...")
+user_query = st.chat_input("Type here your message...")
 
 if user_query:
     st.session_state.chat_history.append(HumanMessage(content=user_query))
