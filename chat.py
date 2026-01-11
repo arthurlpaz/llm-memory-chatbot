@@ -1,3 +1,4 @@
+from sqlalchemy import label
 import streamlit as st
 import os
 from dotenv import load_dotenv
@@ -112,3 +113,14 @@ if user_query:
         )
 
     st.session_state.chat_history.append(AIMessage(content=response))
+
+# File uploader in sidebar
+uploads = st.sidebar.file_uploader(
+    label="Upload a file to add context",
+    type=["pdf", "txt", "docx"],
+    accept_multiple_files=True
+)
+
+if not uploads:
+    st.info("Please, upload at least one file to provide context for the chatbot")
+    st.stop()
