@@ -72,5 +72,5 @@ HUGGINGFACEHUB_API_TOKEN="hf_..."
 ### Start the application using Strealit
 
 ```
-streamlit run chat.py
+streamlit run chat.py 
 ```
