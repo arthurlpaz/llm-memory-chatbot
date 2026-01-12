@@ -1,16 +1,26 @@
-from sqlalchemy import label
 import streamlit as st
 import os
+import tempfile
+
 from dotenv import load_dotenv
 
 from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
 from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
+from langchain_huggingface import (
+    ChatHuggingFace,
+    HuggingFaceEndpoint,
+    HuggingFaceEmbeddings,
+)
+from langchain.chains import create_history_aware_retriever, create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain 
+from langchain_groq import ChatGroq
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.vectorstores import FAISS
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
 # ENV
 load_dotenv()
@@ -51,6 +61,17 @@ def model_ollama(model="phi3", temperature=0.1):
         temperature=temperature,
         streaming=True,
     )
+
+
+def model_groq(model="llama3-70b-8192", temperature=0.1):
+    llm = ChatGroq(
+        model=model,
+        temperature=temperature,
+        max_tokens=None,
+        timeout=None,
+        max_retries=2,
+    )
+    return llm
 
 
 # RESPONSE PIPELINE
@@ -114,11 +135,104 @@ if user_query:
 
     st.session_state.chat_history.append(AIMessage(content=response))
 
+
+# Indexation and recoveration
+def setup_retriever(uploads):
+    docs = []
+    temp_dir = tempfile.TemporaryDirectory()
+
+    for file in uploads:
+        temp_filepath = os.path.join(temp_dir.name, file.name)
+        with open(temp_filepath, "wb") as f:
+            f.write(file.getvalue())
+
+        loader = PyPDFLoader(temp_filepath)
+        docs.extend(loader.load())
+
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splits = text_splitter.split_documents(docs)
+
+    # Embedding
+    embeddings = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
+
+    # Storage
+    vectorstore = FAISS.from_documents(splits, embeddings)
+    vectorstore.save_local("vectorstore/db_faiis")
+
+    # Setup retriever
+    retriever = vectorstore.as_retriever(
+        search_type="mmr", search_kwargs={"k": 3, "fetch_k": 4}
+    )
+
+    return retriever
+
+
+# SETUP CHAIN
+def setup_rag_chain(model_class, retriever):
+    if model_class == "hf_hub":
+        llm = model_hf_hub()
+    elif model_class == "openai":
+        llm = model_openai()
+    elif model_class == "ollama":
+        llm = model_ollama()
+    elif model_class == "groq":
+        llm = model_groq()
+    else:
+        raise ValueError("Invalid model_class")
+
+    # Prompt definition
+    if model_class.startswith("hf"):
+        # token_s, token_e = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>", "<|eot_id|><|start_header_id|>assistant<|end_header_id|>" # llama 3
+        token_s, token_e = "<|system|>", "<|end|><|assistant|>"  # phi3
+    else:
+        token_s, token_e = "", ""
+
+    context_q_system_prompt = """
+    Given the following chat history and the follow-up question which might reference context 
+    in the chat history, formulate a standalone question which can be understood without the 
+    chat history. Do NOT answer the question, just reformulate it if needed and otherwise 
+    return it as is.
+    """
+
+    context_q_system_prompt = token_s + context_q_system_prompt
+    context_q_user_prompt = "Question: {input}" + token_e
+    context_q_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", context_q_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("Human", context_q_user_prompt),
+        ]
+    )
+
+
+    # Chain to contextualize 
+    history_aware_retriever = create_history_aware_retriever(
+        llm=llm, retriever=retriever, prompt=context_q_prompt
+    )
+
+    qa_prompt_template = """Você é um assistente virtual prestativo e está respondendo perguntas gerais.
+    Use os seguintes pedaços de contexto recuperado para responder à pergunta.
+    Se você não sabe a resposta, apenas diga que não sabe. Mantenha a resposta concisa.
+    Responda em português. \n\n
+    Pergunta: {input} \n
+    Contexto: {context}"""
+
+    qa_prompt = PromptTemplate.from_template(token_s + qa_prompt_template + token_e)
+
+    qa_chain = create_stuff_documents_chain(llm, qa_prompt)
+
+    rag_chain = create_retrieval_chain(
+        history_aware_retriever,
+        qa_chain,
+    )
+
+    return rag_chain
+
 # File uploader in sidebar
 uploads = st.sidebar.file_uploader(
     label="Upload a file to add context",
     type=["pdf", "txt", "docx"],
-    accept_multiple_files=True
+    accept_multiple_files=True,
 )
 
 if not uploads:
