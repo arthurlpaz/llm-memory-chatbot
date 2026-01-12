@@ -74,39 +74,6 @@ def model_groq(model="llama3-70b-8192", temperature=0.1):
     return llm
 
 
-# RESPONSE PIPELINE
-def model_response(user_query, chat_history, model_class):
-
-    if model_class == "hf_hub":
-        llm = model_hf_hub()
-    elif model_class == "openai":
-        llm = model_openai()
-    elif model_class == "ollama":
-        llm = model_ollama()
-    else:
-        raise ValueError("Invalid model_class")
-
-    system_prompt = (
-        "Você é um assistente prestativo e responde perguntas gerais. "
-        "You're a helpful assistant and answers general questions."
-        "Always answer in {language}."
-    )
-
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            ("system", system_prompt),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}"),
-        ]
-    )
-
-    chain = prompt | llm | StrOutputParser()
-
-    return chain.stream(
-        {"chat_history": chat_history, "input": user_query, "language": "english"}
-    )
-
-
 # SESSION STATE
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = [
@@ -115,26 +82,9 @@ if "chat_history" not in st.session_state:
 
 # CHAT HISTORY RENDER
 for message in st.session_state.chat_history:
-    role = "AI" if isinstance(message, AIMessage) else "Human"
+    role = "ai" if isinstance(message, AIMessage) else "human"
     with st.chat_message(role):
         st.markdown(message.content)
-
-# USER INPUT
-user_query = st.chat_input("Type here your message...")
-
-if user_query:
-    st.session_state.chat_history.append(HumanMessage(content=user_query))
-
-    with st.chat_message("Human"):
-        st.markdown(user_query)
-
-    with st.chat_message("AI"):
-        response = st.write_stream(
-            model_response(user_query, st.session_state.chat_history, model_class)
-        )
-
-    st.session_state.chat_history.append(AIMessage(content=response))
-
 
 # Indexation and recoveration
 def setup_retriever(uploads):
@@ -200,7 +150,7 @@ def setup_rag_chain(model_class, retriever):
         [
             ("system", context_q_system_prompt),
             MessagesPlaceholder("chat_history"),
-            ("Human", context_q_user_prompt),
+            ("human", context_q_user_prompt),
         ]
     )
 
@@ -238,3 +188,50 @@ uploads = st.sidebar.file_uploader(
 if not uploads:
     st.info("Please, upload at least one file to provide context for the chatbot")
     st.stop()
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = [
+        AIMessage(content="Hello, I'm your virtual assistant! How can I help you?"),
+    ]
+
+if "docs_list" not in st.session_state:
+    st.session_state.docs_list = None
+
+if "retriever" not in st.session_state:
+    st.session_state.retriever = None
+
+user_query = st.chat_input("Type here your message...")
+
+if user_query is not None and user_query != "" and uploads is not None:
+    st.session_state.chat_history.append(HumanMessage(content=user_query))
+
+    with st.chat_message("human"):
+        st.markdown(user_query)
+
+    with st.chat_message("ai"):
+
+        if st.session_state.docs_list != uploads:
+            print(uploads)
+            st.session_state.docs_list = uploads
+            st.session_state.retriever = setup_retriever(uploads)
+
+        rag_chain = setup_rag_chain(model_class, st.session_state.retriever)
+
+        result = rag_chain.invoke({"input": user_query, "chat_history": st.session_state.chat_history})
+
+        resp = result['answer']
+        st.write(resp)
+
+        # mostrar a fonte
+        sources = result['context']
+        for idx, doc in enumerate(sources):
+            source = doc.metadata['source']
+            file = os.path.basename(source)
+            page = doc.metadata.get('page', 'Página não especificada')
+
+            ref = f":link: Fonte {idx}: *{file} - p. {page}*"
+            print(ref)
+            with st.popover(ref):
+                st.caption(doc.page_content)
+
+    st.session_state.chat_history.append(AIMessage(content=resp))
