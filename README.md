@@ -19,7 +19,6 @@ This project implements a robust **RAG (Retrieval-Augmented Generation)** pipeli
     * **HuggingFace Hub:** For accessing open-source models remotely.
     * **Ollama:** For running models completely locally and offline.
 * **🔎 Transparency:** Every answer includes **citations** (source file and page number) so you can verify the information.
-* **⚡ Optimized Performance:** Uses Streamlit caching (`@st.cache_resource`) to prevent reloading models and embeddings on every interaction.
 
 ## 🏗️ Architecture
 
